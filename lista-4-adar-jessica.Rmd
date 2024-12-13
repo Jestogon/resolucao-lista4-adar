@@ -18,16 +18,25 @@ uma com exercícios tidyr e outra com dplyr
 
 **Pacotes necessários**
 
+```{r}
+library("rio")
+library("tidyverse")
+```
 
 
 **Dados**
 
+```{r}
+link_soi<- "http://www.cpc.ncep.noaa.gov/data/indices/soi"
+
+```
 
 
 
 ## Exercícios
 
 1. Converta os dados de anomalias padronizadas do índice de oscilação sul armazenados no *quadro de dados* `soi` (mostrado abaixo) para o formato \"arrumado\" e em ordem cronológica. Os nomes das variáveis na tabela de dados arrumado deve estar sempre em letras minúsculas (conheça a função `tolower()`).
+
 
 
 
@@ -41,7 +50,31 @@ $ mes  <int> 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,...
 $ soi  <dbl> 1.5, 0.9, -0.1, -0.3, -0.7, 0.2, -1.0,...
 ```
 
+```{r}
+name_soi <- scan(
+  link_soi, 
+  what = "character", 
+  skip = 3, 
+  nmax = 13 
+)
+(name_soi)
 
+(data_soi<- import(
+  file = link_soi,
+  format = "fwf", 
+  skip = 88, 
+  header = FALSE, 
+  nrows = 72, 
+  widths = c(4, rep(6, 12)),
+  na.strings = "-999.9", 
+  col.names = name_soi
+))
+
+data_soi %>% 
+  pivot_longer(cols = YEAR:DEC,
+               names_to = "mes",
+               values_to = "soi")
+```
 
 
 
