@@ -19,8 +19,11 @@ uma com exercícios tidyr e outra com dplyr
 **Pacotes necessários**
 
 ```{r}
-library("rio")
-library("tidyverse")
+library(rio)
+library(tidyverse)
+library(dplyr)
+library(raster)
+library(ncdf4)
 ```
 
 
@@ -56,7 +59,7 @@ name_soi <- scan(
   what = "character", 
   skip = 3, 
   nmax = 13 
-)
+  )
 (name_soi)
 
 (data_soi<- import(
@@ -68,12 +71,23 @@ name_soi <- scan(
   widths = c(4, rep(6, 12)),
   na.strings = "-999.9", 
   col.names = name_soi
-))
+  ))
 
-data_soi %>% 
-  pivot_longer(cols = YEAR:DEC,
-               names_to = "mes",
-               values_to = "soi")
+soi_arrumado <- data_soi %>%
+  pivot_longer(
+    cols = -YEAR,                
+    names_to = "mes",            
+    values_to = "soi"
+    ) %>%
+  mutate(
+    mes = match(toupper(mes), name_soi[-1]),
+    YEAR = as.integer(YEAR)
+    ) %>%
+  select(YEAR, mes, soi) %>%     
+  rename_with(tolower) %>%       
+  arrange(year, mes)             
+
+glimpse(soi_arrumado)
 ```
 
 
@@ -100,6 +114,44 @@ $ date <date> 2010-01-01, 2010-01-02, 2010-01-03, 2010-01-04, 2010-01...
 $ prec <dbl> 0.0000000, 0.0000000, 0.0000000, 0.4484863, 2.3515625, 4...
 ```
 
+```{r}
+options(timeout = 600)
+
+url_grad_prec <- "https://www.dropbox.com/scl/fi/vqt7qizjnhnzbfkfgo59w/pr_19610101_19801231_BR-DWGD_UFES_UTEXAS_v_3.2.3.nc?rlkey=1ft60lo1qpb3wkaylyfs4genu&st=9migaqqy&dl=1"
+
+file_grad_prec <- file.path(tempdir(), "pr_19610101_19801231_BR-DWGD_UFES_UTEXAS_v_3.2.3.nc")
+
+download.file(
+  url = url_grad_prec,
+  destfile = file_grad_prec,
+  mode = "wb"
+  )
+
+grid_prec_raster <- raster(file_grad_prec)
+
+grad_prec <- as.data.frame(
+  x = grid_prec_raster,
+  xy = TRUE,
+  na.rm = TRUE
+  )
+
+inicio_date <- as.Date("2010-01-01")  
+num_dias <- nlayers(grid_prec_raster)  
+dates <- seq(inicio_date, by = "day", length.out = num_dias)
+  
+colnames(grad_prec)[-(1:2)] <- as.character(dates)
+  
+grad_prec_tidy <- grad_prec %>%
+  pivot_longer(
+    cols = -c(x, y),
+    names_to = "date",
+    values_to = "prec" 
+    ) %>%
+    mutate(date = as.Date(date)) 
+  
+glimpse(grad_prec_tidy)
+
+```
 
 
 
