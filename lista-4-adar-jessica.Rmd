@@ -11,9 +11,6 @@ uma com exercícios tidyr e outra com dplyr
 -->
 
 
-
-
-
 ## Pré-requisitos
 
 **Pacotes necessários**
@@ -21,6 +18,7 @@ uma com exercícios tidyr e outra com dplyr
 ```{r}
 library(tidyverse)
 library(dplyr)
+library(lubridate)
 ```
 
 
@@ -53,8 +51,7 @@ $ soi  <dbl> 1.5, 0.9, -0.1, -0.3, -0.7, 0.2, -1.0,...
 ```
 
 ```{r}
-print(soi)
-class(soi)
+#print(soi)
 
 name_soi <- colnames(soi)
 print(name_soi)
@@ -93,8 +90,7 @@ $ prec <dbl> 0.0000000, 0.0000000, 0.0000000, 0.4484863, 2.3515625, 4...
 ```
 
 ```{r}
-print(precd_ncdf)
-class(precd_ncdf)
+#print(precd_ncdf)
 
 inicio_date <- as.Date("2010-01-01")  
 num_dias <- ncol(precd_ncdf) - 2 
@@ -115,7 +111,6 @@ precd_ncdf_arrumado <- precd_ncdf %>%
     mutate(date = as.Date(date)) 
   
 glimpse(precd_ncdf_arrumado)
-
 ```
 
 
@@ -124,8 +119,7 @@ glimpse(precd_ncdf_arrumado)
 3. Coloque os dados de poluição (**`tibble`** `poluentes`) no formato \"arrumado\".
 
 ```{r}
-print(poluentes)
-class(poluentes)
+#print(poluentes)
 
 poluentes_arrumados <- poluentes %>%
   pivot_wider(
@@ -164,8 +158,7 @@ glimpse(poluentes_arrumados)
 ```
 
 ```{r}
-print(dados_sm)
-class(dados_sm)
+#print(dados_sm)
 
 dados_sm_arrumados <- dados_sm %>%  
   pivot_longer(
@@ -298,8 +291,7 @@ $ tmin <dbl> 16.0, 13.5, 18.2, 24.1, 19.0, 13.7, 16.3, 22.3, 21.0, 14.1, 17.2, 2
 ```
 
 ```{r}
-print(dados_zorra)
-class(dados_zorra)
+#print(dados_zorra)
 
 dados_zorra_posix <- dados_zorra %>%
   pivot_longer(
@@ -324,7 +316,6 @@ dados_zorra_posix <- dados_zorra %>%
   arrange(date)                          
 
 glimpse(dados_zorra_posix)
-
 ```
 
 
@@ -345,8 +336,7 @@ $ duracao  <chr> "1h", "1h", "8h"
 ```
 
 ```{r}
-print(poluentes)
-print(estacoes)
+#print(poluentes)
 
 poluentes_id <- poluentes %>% 
   rename(
@@ -369,11 +359,14 @@ glimpse(tabela_1)
   a. A tabela resultante contenha todas as datas compreendidas pelas duas tabelas (e em ordem cronológica) e as observações de umidade do solo (`theta`) sejam preenchidas com `NA`. 
 
 ```{r}
+#print(datas_obs)
+#print(datas_comp)
+
 tabela_2 <- full_join(
   x = datas_obs, 
   y = datas_comp,
   by = "date") %>%
-  arrange(., desc(date))
+  arrange(date)
 
 glimpse(tabela_2)
 ```
@@ -381,36 +374,78 @@ glimpse(tabela_2)
 
   b. a tabela resultante contenha exatamente as datas da tabela `data_comp` (em ordem cronológica) e as observações de umidade do solo (`theta`) sejam preenchidas com `NA`.
   
+```{r}
+tabela_3 <- right_join(
+  x = datas_obs, 
+  y = datas_comp,
+  by = "date") %>%
+  arrange(date)
 
-
+glimpse(tabela_3)
+```
 
 
 - - - 
 
 9. Utilizando os dados horários de estações meteorológicas automáticas (EMA) do RS (`dados_rs_08_16`), determine a data inicial, final e o período de dados (em anos) de cada estação (identificada pela variável `site`).
 
+```{r}
+#print(dados_rs_08_16)
 
+resumo_EMA_RS <- dados_rs_08_16 %>%
+  group_by(site) %>%                               
+  summarise(
+    data_inicial = min(date),                      
+    data_final = max(date),                        
+    periodo_anos = as.numeric(
+      difftime(
+        data_final, 
+        data_inicial, 
+        units = "days"
+        )
+      ) / 365
+  )
 
-
-
-
+print(resumo_EMA_RS)
+```
 
 
 - - -
 
 10. Determine a porcentagem de dados válidos (ou seja, não faltantes) de cada variável para cada EMA. Aproxime os valores para números inteiros.
 
+```{r}
+#print(dados_rs_08_16)
 
+EMA_RS_validos <- dados_rs_08_16 %>%
+  group_by(site) %>%
+  summarise(
+    across(
+      .cols = tair:ws,
+      .fns = function(x) {
+        round(sum( !is.na(x)) / n() * 100, 0)
+        },  
+      .names = "pdv_{.col}"
+      )
+    )
 
+print(EMA_RS_validos)
+```
 
 
 - - -
 
 11. Com o resultado da questão anterior, adicione uma variável indicativa da porcentagem média de observações válidas de todas variáveis. Ordene esta tabela em ordem decrescente da disponibilidade média de observações. 
   
+```{r}
+EMA_RS_validos_media <- EMA_RS_validos %>%
+  mutate(
+    pdv_media = round(rowMeans(across(starts_with("pdv_"))), 0)  
+  ) %>%
+  arrange(desc(pdv_media))
 
-
-
+print(EMA_RS_validos_media)
+```
 
 
 - - -
@@ -419,10 +454,26 @@ glimpse(tabela_2)
 
 > Dica: Para extrair as horas das datas use a função `lubridate::hour(date)`.
 
+```{r}
+dados_santa_maria <- info_emas_rs_08_16 %>% 
+  filter(name == "SANTA MARIA")
 
+EMA_santa_maria <- dados_rs_08_16 %>%
+  filter(site == dados_santa_maria$site)
 
+ciclo_diurno <- EMA_santa_maria %>%
+  mutate(
+    hora = hour(date)  
+  ) %>%
+  group_by(hora) %>%  
+  summarise(
+    tair_media = mean(tair, na.rm = TRUE),                     
+    pd_validos = round(sum(!is.na(tair)) / n() * 100, 2)       
+  ) %>%
+  arrange(hora) 
 
-
+print(ciclo_diurno)
+```
 
 
 - - -
@@ -431,10 +482,23 @@ glimpse(tabela_2)
 
 > Dica: para obter o dia a partir da data e hora (coluna `date` do tipo `POSIXct`) use `lubridate::floor_date(date, unit = "day")`.
 
+```{r}
+dados_dias_completos <- EMA_santa_maria %>%
+  mutate(dia = floor_date(date, unit = "day")) %>%  
+  group_by(dia) %>%
+  filter(sum(!is.na(tair)) == 24) %>%  
+  ungroup()
 
+frequencia_tmin <- dados_dias_completos %>%
+  group_by(dia) %>%
+  filter(tair == min(tair, na.rm = TRUE)) %>%  
+  ungroup() %>%
+  mutate(hora = hour(date)) %>% 
+  count(hora, name = "frequencia") %>%
+  arrange(desc(frequencia))
 
-
-
+print(frequencia_tmin)
+```
 
 
 - - -
@@ -457,11 +521,37 @@ glimpse(tabela_2)
 #   tmax_abs <dbl>
 ```
 
+```{r}
+EMA_SM <- dados_dias_completos %>%
+  group_by(dia = floor_date(date, unit = "day")) %>%  
+  summarise(
+    tmax = max(tair, na.rm = TRUE),                  
+    tmin = min(tair, na.rm = TRUE)                   
+  ) %>%
+  mutate(mes = month(dia)) %>% 
+  rename(date = dia)
 
+CON_SM <- recordes_temp %>%
+  filter(site == "83936") %>%
+  rename(
+    mes = month,   
+    site = site    
+    )
 
+casos_susp <- inner_join(
+  EMA_SM, 
+  CON_SM, 
+  by = "mes") %>%
+  filter(tmax > tmax_abs | tmin < tmin_abs) %>% 
+  dplyr::select(
+    date, 
+    tmax, 
+    tmin, 
+    mes, 
+    site, 
+    tmax_abs, 
+    tmin_abs
+    )  
 
-
-
-
-
-
+print(casos_susp)
+```
