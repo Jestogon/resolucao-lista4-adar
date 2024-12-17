@@ -19,29 +19,28 @@ uma com exercícios tidyr e outra com dplyr
 **Pacotes necessários**
 
 ```{r}
-library(rio)
 library(tidyverse)
 library(dplyr)
-library(raster)
-library(ncdf4)
 ```
 
 
 **Dados**
 
 ```{r}
-link_soi<- "http://www.cpc.ncep.noaa.gov/data/indices/soi"
-
+arq_temp <- tempfile(fileext = ".RData")
+download.file(
+  "https://github.com/lhmet/adar-ufsm/blob/master/data/dados-lista-exerc4-cap9.RData?raw=true",
+  destfile = arq_temp,
+  mode = "wb"
+)
+# nome dos dados carregados para os exercícios
+print(load(arq_temp))
 ```
-
 
 
 ## Exercícios
 
 1. Converta os dados de anomalias padronizadas do índice de oscilação sul armazenados no *quadro de dados* `soi` (mostrado abaixo) para o formato \"arrumado\" e em ordem cronológica. Os nomes das variáveis na tabela de dados arrumado deve estar sempre em letras minúsculas (conheça a função `tolower()`).
-
-
-
 
 A estrutura esperada dos dados processados é mostrada abaixo: 
 
@@ -54,26 +53,13 @@ $ soi  <dbl> 1.5, 0.9, -0.1, -0.3, -0.7, 0.2, -1.0,...
 ```
 
 ```{r}
-name_soi <- scan(
-  link_soi, 
-  what = "character", 
-  skip = 3, 
-  nmax = 13 
-  )
-(name_soi)
+print(soi)
+class(soi)
 
-(data_soi<- import(
-  file = link_soi,
-  format = "fwf", 
-  skip = 88, 
-  header = FALSE, 
-  nrows = 72, 
-  widths = c(4, rep(6, 12)),
-  na.strings = "-999.9", 
-  col.names = name_soi
-  ))
+name_soi <- colnames(soi)
+print(name_soi)
 
-soi_arrumado <- data_soi %>%
+soi_arrumado <- soi %>%
   pivot_longer(
     cols = -YEAR,                
     names_to = "mes",            
@@ -83,7 +69,7 @@ soi_arrumado <- data_soi %>%
     mes = match(toupper(mes), name_soi[-1]),
     YEAR = as.integer(YEAR)
     ) %>%
-  select(YEAR, mes, soi) %>%     
+  dplyr::select(YEAR, mes, soi) %>%     
   rename_with(tolower) %>%       
   arrange(year, mes)             
 
@@ -91,17 +77,9 @@ glimpse(soi_arrumado)
 ```
 
 
-
-
-
-
-
-
 - - -
 
 2. Faça a conversão dos dados de precipitação diária, armazenados em um **`tibble**`, para o \"formato arrumado\" e transforme as datas para o tipo de dados *date*.
-
-
 
 A estrutura esperada do **`tibble`** resultante é mostrada abaixo:
 
@@ -115,33 +93,20 @@ $ prec <dbl> 0.0000000, 0.0000000, 0.0000000, 0.4484863, 2.3515625, 4...
 ```
 
 ```{r}
-options(timeout = 600)
-
-url_grad_prec <- "https://www.dropbox.com/scl/fi/vqt7qizjnhnzbfkfgo59w/pr_19610101_19801231_BR-DWGD_UFES_UTEXAS_v_3.2.3.nc?rlkey=1ft60lo1qpb3wkaylyfs4genu&st=9migaqqy&dl=1"
-
-file_grad_prec <- file.path(tempdir(), "pr_19610101_19801231_BR-DWGD_UFES_UTEXAS_v_3.2.3.nc")
-
-download.file(
-  url = url_grad_prec,
-  destfile = file_grad_prec,
-  mode = "wb"
-  )
-
-grid_prec_raster <- raster(file_grad_prec)
-
-grad_prec <- as.data.frame(
-  x = grid_prec_raster,
-  xy = TRUE,
-  na.rm = TRUE
-  )
+print(precd_ncdf)
+class(precd_ncdf)
 
 inicio_date <- as.Date("2010-01-01")  
-num_dias <- nlayers(grid_prec_raster)  
-dates <- seq(inicio_date, by = "day", length.out = num_dias)
+num_dias <- ncol(precd_ncdf) - 2 
+dates <- seq(
+  inicio_date, 
+  by = "day", 
+  length.out = num_dias
+  )
   
-colnames(grad_prec)[-(1:2)] <- as.character(dates)
+colnames(precd_ncdf)[-(1:2)] <- as.character(dates)
   
-grad_prec_tidy <- grad_prec %>%
+precd_ncdf_arrumado <- precd_ncdf %>%
   pivot_longer(
     cols = -c(x, y),
     names_to = "date",
@@ -149,29 +114,32 @@ grad_prec_tidy <- grad_prec %>%
     ) %>%
     mutate(date = as.Date(date)) 
   
-glimpse(grad_prec_tidy)
+glimpse(precd_ncdf_arrumado)
 
 ```
-
-
-
-
-
 
 
 - - -
 
 3. Coloque os dados de poluição (**`tibble`** `poluentes`) no formato \"arrumado\".
 
+```{r}
+print(poluentes)
+class(poluentes)
 
+poluentes_arrumados <- poluentes %>%
+  pivot_wider(
+    names_from = poluente,
+    values_from = duracao
+    )
 
-
+glimpse(poluentes_arrumados)
+```
 
 
 - - -
 
 4. a. Coloque os dados meteorológicos diários da estação meteorológica de Santa Maria no formato arrumado. 
-
 
 ```
 #> # A tibble: 12 x 35
@@ -195,6 +163,19 @@ glimpse(grad_prec_tidy)
 #> #   d30 <dbl>, d31 <dbl>
 ```
 
+```{r}
+print(dados_sm)
+class(dados_sm)
+
+dados_sm_arrumados <- dados_sm %>%  
+  pivot_longer(
+  cols = -(id:year),
+  names_to = "day",
+  values_to = "value"
+  )
+
+glimpse(dados_sm_arrumados)
+```
 
 
    b. Deixe os dados ordenados cronologicamente e obtenha as variáveis com nomes e ordem conforme mostrado na estrutura de dados esperada.
@@ -210,14 +191,37 @@ $ tmax  <dbl> 32.6, 33.4, 24.8, 29.4, 27.0, 24.4, 29.6, 29.4...
 $ tmin  <dbl> 17.9, 21.4, 21.6, 23.4, 23.2, 21.8, 18.0, 19.4...
 ```
 
+```{r}
+dados_sm_arrumados_crono <- dados_sm_arrumados %>% 
+  pivot_wider(
+    names_from = "element",
+    values_from = "value"
+    ) %>% 
+  mutate(
+    day = gsub(
+      x = day,
+      pattern = "d",
+      replacement = ''
+      ),
+    day = as.integer(day)
+    ) %>% 
+  dplyr::select(id, year, everything()) %>% 
+  arrange(year, month, day) 
+
+glimpse(dados_sm_arrumados_crono)
+```
 
 
    c. Acrescente uma nova variável `tmed` aos dados de temperatura diária arrumados, obtida da média diária da `tmax` e `tmin`.
 
+```{r}
+dados_sm_arrumados_crono_med <- dados_sm_arrumados_crono %>% 
+  mutate(
+    tmed = (tmax + tmin) / 2  
+  ) 
 
-
-
-
+glimpse(dados_sm_arrumados_crono_med)
+```
 
 
 - - -
@@ -225,23 +229,49 @@ $ tmin  <dbl> 17.9, 21.4, 21.6, 23.4, 23.2, 21.8, 18.0, 19.4...
 5. Com os dados obtidos na questão 4c: 
 
 
-
-
    a. renomeie as as colunas `year`, `month` e `day`para `ano`, `mes` e `dia`, respectivamente.
 
+```{r}
+dados_sm_arrumados_crono_med_rename <- dados_sm_arrumados_crono_med %>%
+  rename(
+    ano = year,   
+    mes = month,  
+    dia = day     
+    )
 
+glimpse(dados_sm_arrumados_crono_med_rename)
+```
 
 
    b. junte as colunas `ano`, `mes` e `dia` em uma única coluna denominada `data` de forma que a classe dessa nova váriavel seja `date`.
 
+```{r}
+dados_sm_arrumados_crono_med_rename_data <- dados_sm_arrumados_crono_med_rename %>% 
+  unite(                     
+    col = "data",            
+    ano, mes, dia,           
+    sep = "-",              
+    remove = TRUE           
+  ) %>%
+  mutate(
+    data = as.Date(data)    
+  )
 
+glimpse(dados_sm_arrumados_crono_med_rename_data)
+```
 
 
    c. Filtre os dados obtidos em **(b)** de forma a descobrir as datas em que as observações de `tmax` ou `tmin` são faltantes. Mostre o **`tibble`** filtrado com as datas e explique o porquê de seus valores. *DICA: quantas observações são esperadas por ano?*. 
 
+```{r}
+dados_faltantes <- dados_sm_arrumados_crono_med_rename_data %>%
+  filter(is.na(tmax) | is.na(tmin)) %>%  
+  dplyr::select(data, tmax, tmin)             
 
+print(dados_faltantes)
 
-
+###São 5 datas com dados faltantes, representados pelas 5 linhas, a data aparecem NA pois não havia observações quando ano,mes e dia foram transformados para data.
+```
 
 
 - - -
@@ -267,19 +297,40 @@ $ tmax <dbl> 22.1, 21.0, 26.4, 27.0, 26.0, 25.0, 29.4, 29.5, 25.7, 26.3, 28.4, 2
 $ tmin <dbl> 16.0, 13.5, 18.2, 24.1, 19.0, 13.7, 16.3, 22.3, 21.0, 14.1, 17.2, 26.0, 23.0, ...
 ```
 
+```{r}
+print(dados_zorra)
+class(dados_zorra)
 
+dados_zorra_posix <- dados_zorra %>%
+  pivot_longer(
+    cols = -date,                         
+    names_to = c("variavel", "hora"),    
+    names_sep = "\\.",                    
+    values_to = "valor"                   
+  ) %>%
+  pivot_wider(
+    names_from = variavel,                
+    values_from = valor
+  ) %>%
+  mutate(
+    hora = case_when(                     
+      hora == "0" ~ "00:00",
+      hora == "600" ~ "06:00",
+      hora == "1200" ~ "12:00",
+      hora == "1800" ~ "18:00"),
+    date = dmy_hm(paste(date, hora))
+    ) %>%
+  dplyr::select(date, tmax, tmin) %>%            
+  arrange(date)                          
 
+glimpse(dados_zorra_posix)
 
-
+```
 
 
 - - -
 
 7. Faça uma junção da tabela de dados de informações das estações de poluição (`estacoes`, dada abaixo) com os períodos de duração de poluição crítica (`poluentes`). A tabela resultante deve conter somente estações que tenham coordenadas espaciais e medidas de poluentes válidas.
-
-
-
-
 
 Estrutura da tabela resultante:
 
@@ -293,18 +344,39 @@ $ poluente <chr> "ozone", "so2", "ozone"
 $ duracao  <chr> "1h", "1h", "8h"
 ```
 
+```{r}
+print(poluentes)
+print(estacoes)
+
+poluentes_id <- poluentes %>% 
+  rename(
+    id = estacao
+  )
+
+tabela_1 <- inner_join(
+  x = estacoes, 
+  y = poluentes_id,
+  by = "id")
+
+glimpse(tabela_1)
+```
+
+
 - - -
 
 8. Combine as 2 tabelas abaixo de forma que:
 
   a. A tabela resultante contenha todas as datas compreendidas pelas duas tabelas (e em ordem cronológica) e as observações de umidade do solo (`theta`) sejam preenchidas com `NA`. 
 
+```{r}
+tabela_2 <- full_join(
+  x = datas_obs, 
+  y = datas_comp,
+  by = "date") %>%
+  arrange(., desc(date))
 
-
-
-
-
-
+glimpse(tabela_2)
+```
 
 
   b. a tabela resultante contenha exatamente as datas da tabela `data_comp` (em ordem cronológica) e as observações de umidade do solo (`theta`) sejam preenchidas com `NA`.
